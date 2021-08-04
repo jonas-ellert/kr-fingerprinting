@@ -24,6 +24,11 @@ struct MERSENNE61 {
   constexpr static uintX_t value = (((uintX_t)1ULL) << 61) - 1;
   constexpr static uintX_t shift = countr_zero(value + 1);
 };
+struct MERSENNE107 {
+  using uintX_t = uint128_t;
+  constexpr static uintX_t value = (((uintX_t)1ULL) << 107) - 1;
+  constexpr static uintX_t shift = countr_zero(value + 1);
+};
 struct MERSENNE127 {
   using uintX_t = uint128_t;
   constexpr static uintX_t value = (((uintX_t)1ULL) << 127) - 1;
@@ -32,7 +37,8 @@ struct MERSENNE127 {
 
 template <typename p>
 concept MersennePrime =
-    std::is_same_v<p, MERSENNE61> || std::is_same_v<p, MERSENNE127>;
+    std::is_same_v<p, MERSENNE61> || std::is_same_v<p, MERSENNE107> ||
+    std::is_same_v<p, MERSENNE127>;
 
 template <MersennePrime p>
 struct kr_fingerprinter {
@@ -43,7 +49,7 @@ struct kr_fingerprinter {
   constexpr static uintX_t shift = p::shift;
 
   inline constexpr static uintX_t modulo(uint128_t const value) {
-    if constexpr (is_64_bit) {
+    /*if constexpr (is_64_bit) {
       // this assumes value < 2^122
       uint128_t const v = value + 1;
       uint64_t const z = ((v >> shift) + v) >> shift;
@@ -52,12 +58,12 @@ struct kr_fingerprinter {
       // this assumes value < 2^128 - 1
       uint128_t const z = (value + 1) >> shift;
       return (value + z) & prime;
-    }
+    }*/
 
     // another option for any type:
     // this assumes value < prime^2
-    // uintX_t const i = (value & prime) + (value >> shift);
-    // return (i >= prime) ? (i - prime) : i;
+    uintX_t const i = (value & prime) + (value >> shift);
+    return (i >= prime) ? (i - prime) : i;
   }
 
   // this assumes a,b < prime
@@ -81,7 +87,8 @@ struct kr_fingerprinter {
       uint128_t const h128 = h + (m1 >> 64) + (m2 >> 64) + carry;
       uint128_t const l128 = l + (m1 << 64) + (m2 << 64);
 
-      uint128_t sum = ((h128 << 1) | (l128 >> 127)) + (l128 & prime);
+      uint128_t sum =
+          ((h128 << (128 - shift)) | (l128 >> shift)) + (l128 & prime);
 
       return modulo(sum);
     }
@@ -110,7 +117,8 @@ struct kr_fingerprinter {
       uint128_t const h128 = h + (m1 >> 64) + (m2 >> 64) + carry;
       uint128_t const l128 = l + c + (m1 << 64) + (m2 << 64);
 
-      uint128_t sum = ((h128 << 1) | (l128 >> 127)) + (l128 & prime);
+      uint128_t sum =
+          ((h128 << (128 - shift)) | (l128 >> shift)) + (l128 & prime);
 
       return modulo(sum);
     }
@@ -133,7 +141,8 @@ struct kr_fingerprinter {
       uint128_t const h128 = h + ((m >> 64) << 1) + carry;
       uint128_t const l128 = l + (m << 65);
 
-      uint128_t sum = ((h128 << 1) | (l128 >> 127)) + (l128 & prime);
+      uint128_t sum =
+          ((h128 << (128 - shift)) | (l128 >> shift)) + (l128 & prime);
 
       return modulo(sum);
     }
@@ -292,7 +301,7 @@ struct kr_fingerprinter {
     inline uintX_t base() const { return base_; }
   };
 
-  using sliding_window = sliding_window_precompute<!is_64_bit>;
+  using sliding_window = sliding_window_precompute<true>;
 };
 
 }  // namespace kr_fingerprinting
