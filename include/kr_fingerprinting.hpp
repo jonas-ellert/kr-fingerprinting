@@ -19,9 +19,21 @@ constexpr uint64_t countr_zero(uint128_t v) {
                    : (std::countr_zero((uint64_t)(v >> 64)) + 64);
 }
 
+template <uint64_t s>
+struct MERSENNE {
+  using uintX_t = uint128_t;
+  constexpr static uintX_t value = (((uintX_t)1ULL) << s) - 1;
+  constexpr static uintX_t shift = s;
+};
+
 struct MERSENNE61 {
   using uintX_t = uint64_t;
   constexpr static uintX_t value = (((uintX_t)1ULL) << 61) - 1;
+  constexpr static uintX_t shift = countr_zero(value + 1);
+};
+struct MERSENNE89 {
+  using uintX_t = uint128_t;
+  constexpr static uintX_t value = (((uintX_t)1ULL) << 89) - 1;
   constexpr static uintX_t shift = countr_zero(value + 1);
 };
 struct MERSENNE107 {
@@ -37,8 +49,8 @@ struct MERSENNE127 {
 
 template <typename p>
 concept MersennePrime =
-    std::is_same_v<p, MERSENNE61> || std::is_same_v<p, MERSENNE107> ||
-    std::is_same_v<p, MERSENNE127>;
+    true || std::is_same_v<p, MERSENNE61> || std::is_same_v<p, MERSENNE89> ||
+    std::is_same_v<p, MERSENNE107> || std::is_same_v<p, MERSENNE127>;
 
 template <MersennePrime p>
 struct kr_fingerprinter {
@@ -323,3 +335,15 @@ inline std::ostream &operator<<(std::ostream &out,
   }
   return out;
 }
+
+namespace std {
+std::string to_string(kr_fingerprinting::uint128_t value) {
+  char buffer[64];  // 39 should be enough
+  char *digit = &(buffer[64]);
+  do {
+    *(--digit) = "0123456789"[value % 10];
+    value /= 10;
+  } while (value != 0);
+  return std::string(digit, &buffer[64]);
+}
+}  // namespace std
