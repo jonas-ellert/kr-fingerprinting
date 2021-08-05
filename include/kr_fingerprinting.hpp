@@ -11,7 +11,7 @@ namespace kr_fingerprinting {
 template <typename T>
 concept ByteType = std::unsigned_integral<T> && (sizeof(T) == 1);
 
-using uint128_t = unsigned __int128;
+__extension__ using uint128_t = unsigned __int128;
 
 // trailing zero count
 constexpr uint64_t countr_zero(uint128_t v) {
@@ -20,43 +20,31 @@ constexpr uint64_t countr_zero(uint128_t v) {
 }
 
 template <uint64_t s>
-struct MERSENNE {
-  using uintX_t = uint128_t;
+struct TWO_POW_MINUS_ONE {
+  using uintX_t = std::conditional_t<(s > 63), uint128_t, uint64_t>;
   constexpr static uintX_t value = (((uintX_t)1ULL) << s) - 1;
   constexpr static uintX_t shift = s;
 };
 
-struct MERSENNE61 {
-  using uintX_t = uint64_t;
-  constexpr static uintX_t value = (((uintX_t)1ULL) << 61) - 1;
-  constexpr static uintX_t shift = countr_zero(value + 1);
-};
-struct MERSENNE89 {
-  using uintX_t = uint128_t;
-  constexpr static uintX_t value = (((uintX_t)1ULL) << 89) - 1;
-  constexpr static uintX_t shift = countr_zero(value + 1);
-};
-struct MERSENNE107 {
-  using uintX_t = uint128_t;
-  constexpr static uintX_t value = (((uintX_t)1ULL) << 107) - 1;
-  constexpr static uintX_t shift = countr_zero(value + 1);
-};
-struct MERSENNE127 {
-  using uintX_t = uint128_t;
-  constexpr static uintX_t value = (((uintX_t)1ULL) << 127) - 1;
-  constexpr static uintX_t shift = countr_zero(value + 1);
-};
+constexpr bool is_mersenne_power(uint64_t const p) {
+  constexpr uint64_t powers[] = {2, 3, 5, 7, 13, 17, 19, 31, 61, 89, 107, 127};
+  for (uint64_t i = 0; i < sizeof(powers) / sizeof(uint64_t); ++i)
+    if (powers[i] == p) return true;
+  return false;
+}
 
-template <typename p>
-concept MersennePrime =
-    true || std::is_same_v<p, MERSENNE61> || std::is_same_v<p, MERSENNE89> ||
-    std::is_same_v<p, MERSENNE107> || std::is_same_v<p, MERSENNE127>;
+using MERSENNE61 = TWO_POW_MINUS_ONE<61>;
+using MERSENNE89 = TWO_POW_MINUS_ONE<89>;
+using MERSENNE107 = TWO_POW_MINUS_ONE<107>;
+using MERSENNE127 = TWO_POW_MINUS_ONE<127>;
+
+template <typename T>
+concept MersennePrime = is_mersenne_power(T::shift) &&
+                        std::is_same_v<T, TWO_POW_MINUS_ONE<T::shift>>;
 
 template <MersennePrime p>
 struct kr_fingerprinter {
-  constexpr static bool is_64_bit = std::is_same_v<p, MERSENNE61>;
   using uintX_t = p::uintX_t;
-
   constexpr static uintX_t prime = p::value;
   constexpr static uintX_t shift = p::shift;
 
@@ -75,12 +63,15 @@ struct kr_fingerprinter {
     // another option for any type:
     // this assumes value < prime^2
     uintX_t const i = (value & prime) + (value >> shift);
-    return (i >= prime) ? (i - prime) : i;
+    if constexpr (shift < 64)
+      return (i & prime) + (i >> shift);
+    else
+      return (i >= prime) ? (i - prime) : i;
   }
 
   // this assumes a,b < prime
   inline constexpr static uint128_t mult(uintX_t const a, uintX_t const b) {
-    if constexpr (is_64_bit) {
+    if constexpr (shift < 64) {
       return ((uint128_t)a) * b;
     } else {
       uint128_t const al = (uint64_t)a;
@@ -93,16 +84,26 @@ struct kr_fingerprinter {
       uint128_t const m2 = bh * al;
       uint128_t const l = al * bl;
 
-      uint128_t const carry =
-          ((uint128_t)(uint64_t)m1 + (uint128_t)(uint64_t)m2 + (l >> 64)) >> 64;
+      if constexpr (shift < 127) {
+        // this only works because we have sufficiently many overflow bits
+        uint128_t const m = m1 + m2;
+        uint128_t const sum = (l & prime) + (l >> shift) + ((m << 64) & prime) +
+                              (m >> (shift - 64)) +
+                              ((h << (128 - shift)) & prime) +
+                              (h >> (2 * shift - 128));
+        return modulo(sum);
+      } else {
+        uint128_t const carry =
+            (((l >> 64) + (uint64_t)m1) + (uint64_t)m2) >> 64;
 
-      uint128_t const h128 = h + (m1 >> 64) + (m2 >> 64) + carry;
-      uint128_t const l128 = l + (m1 << 64) + (m2 << 64);
+        uint128_t const h128 = h + (m1 >> 64) + (m2 >> 64) + carry;
+        uint128_t const l128 = l + (m1 << 64) + (m2 << 64);
 
-      uint128_t sum =
-          ((h128 << (128 - shift)) | (l128 >> shift)) + (l128 & prime);
+        uint128_t sum =
+            ((h128 << (128 - shift)) | (l128 >> shift)) + (l128 & prime);
 
-      return modulo(sum);
+        return modulo(sum);
+      }
     }
   }
 
@@ -110,7 +111,7 @@ struct kr_fingerprinter {
   // a * b + c
   inline constexpr static uint128_t mult_add(uintX_t const a, uintX_t const b,
                                              uintX_t const c) {
-    if constexpr (is_64_bit) {
+    if constexpr (shift < 64) {
       return (((uint128_t)a) * b) + c;
     } else {
       uint128_t const al = (uint64_t)a;
@@ -123,22 +124,33 @@ struct kr_fingerprinter {
       uint128_t const m2 = bh * al;
       uint128_t const l = al * bl;
 
-      uint128_t const carry =
-          (((l >> 64) + (c >> 64) + (uint64_t)m1) + (uint64_t)m2) >> 64;
+      if constexpr (shift < 127) {
+        // this only works because we have sufficiently many overflow bits
+        uint128_t const m = m1 + m2;
+        uint128_t const sum = c + (l & prime) + (l >> shift) +
+                              ((m << 64) & prime) + (m >> (shift - 64)) +
+                              ((h << (128 - shift)) & prime) +
+                              (h >> (2 * shift - 128));
+        return modulo(sum);
+      } else {
+        // for p127 the single overflow bit is not sufficient
+        uint128_t const carry =
+            ((l >> 64) + (c >> 64) + (uint64_t)m1 + (uint64_t)m2) >> 64;
 
-      uint128_t const h128 = h + (m1 >> 64) + (m2 >> 64) + carry;
-      uint128_t const l128 = l + c + (m1 << 64) + (m2 << 64);
+        uint128_t const h128 = h + (m1 >> 64) + (m2 >> 64) + carry;
+        uint128_t const l128 = l + c + (m1 << 64) + (m2 << 64);
 
-      uint128_t sum =
-          ((h128 << (128 - shift)) | (l128 >> shift)) + (l128 & prime);
+        uint128_t sum =
+            ((h128 << (128 - shift)) | (l128 >> shift)) + (l128 & prime);
 
-      return modulo(sum);
+        return modulo(sum);
+      }
     }
   }
 
   // this assumes a < prime
   inline constexpr static uint128_t square(uintX_t const a) {
-    if constexpr (is_64_bit) {
+    if constexpr (shift < 64) {
       return ((uint128_t)a) * a;
     } else {
       uint128_t const al = (uint64_t)a;
@@ -162,7 +174,7 @@ struct kr_fingerprinter {
 
   inline constexpr static uintX_t mult_modulo(uintX_t const a,
                                               uintX_t const b) {
-    if constexpr (is_64_bit)
+    if constexpr (shift < 64)
       return modulo(mult(a, b));
     else
       return mult(a, b);
@@ -171,14 +183,14 @@ struct kr_fingerprinter {
   inline constexpr static uintX_t mult_add_modulo(uintX_t const a,
                                                   uintX_t const b,
                                                   uintX_t const c) {
-    if constexpr (is_64_bit)
+    if constexpr (shift < 64)
       return modulo(mult_add(a, b, c));
     else
       return mult_add(a, b, c);
   }
 
   inline constexpr static uintX_t square_modulo(uintX_t const a) {
-    if constexpr (is_64_bit)
+    if constexpr (shift < 64)
       return modulo(square(a));
     else
       return square(a);
@@ -200,7 +212,7 @@ struct kr_fingerprinter {
     static std::random_device seed;
     static std::mt19937_64 g = std::mt19937_64(seed());
 
-    if constexpr (is_64_bit) {
+    if constexpr (shift < 64) {
       static unif_dist d(1, prime - 2);
       return d(g);
     } else {
@@ -281,34 +293,10 @@ struct kr_fingerprinter {
       }
     }
 
-    inline uintX_t roll_right(uintX_t const fp, uintX_t const pop_left,
-                              uintX_t const push_right) {
-      constexpr static uint128_t maxproduct =
-          (is_64_bit) ? (((uint128_t)prime) * prime) : ((uint128_t)prime);
-
-      uint128_t const shifted_fingerprint = mult(base_, fp);
-      uint128_t const pop = maxproduct - mult(max_exponent_, pop_left);
-
-      if constexpr (is_64_bit) {
-        return modulo(shifted_fingerprint + pop + push_right);
-      } else {
-        return modulo(modulo(shifted_fingerprint + pop) + push_right);
-      }
+    template <ByteType T>
+    inline uintX_t roll_right(uintX_t const fp, T const push_right) {
+      return mult_add_modulo(base_, fp, push_right);
     }
-
-    // this could be more efficient!
-    /*inline uintX_t roll_left(uintX_t const fp, uintX_t const push_left,
-                             uintX_t const pop_right) {
-      uintX_t const popped_fingerprint = prime + fp - pop_right;
-      uint128_t const push = mult(max_exponent_, push_left);
-
-      if constexpr (is_64_bit) {
-        return mult_modulo(modulo(push + popped_fingerprint), inverse_base_);
-      } else {
-        return mult_modulo(modulo(push + modulo(popped_fingerprint)),
-                           inverse_base_);
-      }
-    }*/
 
     inline uintX_t base() const { return base_; }
   };

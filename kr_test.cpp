@@ -36,8 +36,8 @@ void mainp(int argc, char *argv[]) {
 
   std::vector<uint8_t> string;
 
-  if (argc > 0) {
-    std::ifstream t(argv[0]);
+  if (argc > 1) {
+    std::ifstream t(argv[1]);
 
     t.seekg(0, std::ios::end);
     string = std::vector<uint8_t>();
@@ -46,7 +46,7 @@ void mainp(int argc, char *argv[]) {
 
     string.assign((std::istreambuf_iterator<char>(t)),
                   std::istreambuf_iterator<char>());
-    std::cout << "String loaded." << std::endl;
+    std::cout << "String loaded: " << string.size() << std::endl;
   } else {
     uint64_t const n = 1ULL * 512 * 1024 * 1024;
     string.resize(n);
@@ -56,7 +56,7 @@ void mainp(int argc, char *argv[]) {
     std::cout << "String generated." << std::endl;
   }
   uint64_t const n = string.size();
-  constexpr static uint64_t tau = 1000;
+  uint64_t const tau = std::stoi(argv[0]);
 
   [[maybe_unused]] auto set = [&](uint64_t const j, std::string const &s) {
     for (size_t i = 0; i < s.size(); i++) {
@@ -79,26 +79,32 @@ void mainp(int argc, char *argv[]) {
     return result;
   };
 
-  measure(std::string("FP") + std::to_string(p::shift), [&]() {
+  std::string name = std::string("FP") + std::to_string(p::shift);
+  auto fp = measure(name, [&]() {
     typename p::uintX_t fp = 0;
-    for (int i = 0; i < tau; i++) {
-      fp = w.roll_right(fp, '\0', string[i]);
+    for (size_t i = 0; i < tau; i++) {
+      fp = w.roll_right(fp, string[i]);
     }
-    for (int i = 0; i < n - tau; i++) {
+    for (size_t i = 0; i < n - tau; i++) {
       fp = w.roll_right(fp, string[i], string[i + tau]);
     }
     return fp;
   });
+
+  typename p::uintX_t fptest = 0;
+  for (size_t i = n - tau; i < n; i++) {
+    fptest = w.roll_right(fptest, string[i]);
+  }
+  std::cout << name << " correct=" << (fptest == fp) << std::endl;
 }
 
 int main(int argc, char *argv[]) {
-  if (argc > 1 && std::string(argv[1]) == std::string("61")) {
+  if (argc > 2 && std::string(argv[1]) == std::string("61")) {
     mainp<MERSENNE61>(argc - 2, &argv[2]);
   } else if (argc > 1 && std::string(argv[1]) == std::string("127")) {
     mainp<MERSENNE127>(argc - 2, &argv[2]);
   } else {
     mainp<MERSENNE61>(argc - 1, &argv[1]);
-    mainp<MERSENNE<65>>(argc - 1, &argv[1]);
     mainp<MERSENNE89>(argc - 1, &argv[1]);
     mainp<MERSENNE107>(argc - 1, &argv[1]);
     mainp<MERSENNE127>(argc - 1, &argv[1]);
