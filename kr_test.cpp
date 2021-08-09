@@ -28,45 +28,13 @@ struct {
 
 } timer;
 
-template <MersennePrime p>
-void mainp(int argc, char *argv[]) {
-  static std::random_device seed;
-  static std::mt19937_64 g(10);
-  static std::uniform_int_distribution<uint8_t> d(1, 255);
-
-  std::vector<uint8_t> string;
-
-  if (argc > 1) {
-    std::ifstream t(argv[1]);
-
-    t.seekg(0, std::ios::end);
-    string = std::vector<uint8_t>();
-    string.reserve(t.tellg());
-    t.seekg(0, std::ios::beg);
-
-    string.assign((std::istreambuf_iterator<char>(t)),
-                  std::istreambuf_iterator<char>());
-    std::cout << "String loaded: " << string.size() << std::endl;
-  } else {
-    uint64_t const n = 1ULL * 512 * 1024 * 1024;
-    string.resize(n);
-    for (size_t i = 0; i < n; ++i) {
-      string[i] = d(g);
-    }
-    std::cout << "String generated." << std::endl;
-  }
+template <typename window_type>
+void mainp(std::vector<uint8_t> const &string, window_type const &w) {
   uint64_t const n = string.size();
-  uint64_t const tau = std::stoi(argv[0]);
-
-  [[maybe_unused]] auto set = [&](uint64_t const j, std::string const &s) {
-    for (size_t i = 0; i < s.size(); i++) {
-      string[i + j] = s[i];
-    }
-  };
-
-  auto const b = kr_fingerprinting::kr_fingerprinter<p>::random_base();
-  typename kr_fingerprinter<p>::sliding_window w(tau, b);
+  uint64_t const tau = w.window_size();
+  auto const b = w.base();
   std::cout << "b=" << b << std::endl;
+  std::cout << "b=" << (b >> 64) << "," << (uint64_t)b << std::endl;
 
   auto measure = [&]<typename T>(std::string s, T && t) {
     std::cout << s << " start!" << std::endl;
@@ -79,9 +47,11 @@ void mainp(int argc, char *argv[]) {
     return result;
   };
 
-  std::string name = std::string("FP") + std::to_string(p::shift);
+  using uintX_t = decltype(w.roll_right(0, (uint8_t)0));
+
+  std::string name = std::string("FP") + std::to_string(w.bits());
   auto fp = measure(name, [&]() {
-    typename p::uintX_t fp = 0;
+    uintX_t fp = 0;
     for (size_t i = 0; i < tau; i++) {
       fp = w.roll_right(fp, string[i]);
     }
@@ -91,24 +61,54 @@ void mainp(int argc, char *argv[]) {
     return fp;
   });
 
-  typename p::uintX_t fptest = 0;
+  uintX_t fptest = 0;
   for (size_t i = n - tau; i < n; i++) {
     fptest = w.roll_right(fptest, string[i]);
   }
   std::cout << name << " correct=" << (fptest == fp) << std::endl;
 }
 
+template <uint64_t s>
+using fp_type = kr_fingerprinting::kr_fingerprinter<TWO_POW_MINUS_ONE<s>>;
+
+template <uint64_t s>
+using sw_type = fp_type<s>::sliding_window;
+
 int main(int argc, char *argv[]) {
-  if (argc > 2 && std::string(argv[1]) == std::string("61")) {
-    mainp<MERSENNE61>(argc - 2, &argv[2]);
-  } else if (argc > 1 && std::string(argv[1]) == std::string("127")) {
-    mainp<MERSENNE127>(argc - 2, &argv[2]);
+  if (argc < 2) return -1;
+  uint64_t const tau = std::stoi(argv[1]);
+
+  std::vector<uint8_t> string;
+
+  if (argc > 2) {
+    std::ifstream t(argv[2]);
+
+    t.seekg(0, std::ios::end);
+    string = std::vector<uint8_t>();
+    string.reserve(t.tellg());
+    t.seekg(0, std::ios::beg);
+
+    string.assign((std::istreambuf_iterator<char>(t)),
+                  std::istreambuf_iterator<char>());
+    std::cout << "String loaded: " << string.size() << std::endl;
   } else {
-    mainp<MERSENNE61>(argc - 1, &argv[1]);
-    mainp<MERSENNE89>(argc - 1, &argv[1]);
-    mainp<MERSENNE107>(argc - 1, &argv[1]);
-    mainp<MERSENNE127>(argc - 1, &argv[1]);
+    static std::random_device seed;
+    static std::mt19937_64 g(10);
+    static std::uniform_int_distribution<uint8_t> d(1, 255);
+    uint64_t const n = 1ULL * 128 * 1024 * 1024;
+    string.resize(n);
+    for (size_t i = 0; i < n; ++i) {
+      string[i] = d(g);
+    }
+    std::cout << "String generated." << std::endl;
   }
+
+  mainp(string, sw_type<61>(tau, fp_type<61>::random_base()));
+  mainp(string, kr_fingerprinting::sliding_window122(
+                    tau, kr_fingerprinting::random_base_pair61()));
+  mainp(string, sw_type<89>(tau, fp_type<89>::random_base()));
+  mainp(string, sw_type<107>(tau, fp_type<107>::random_base()));
+  mainp(string, sw_type<127>(tau, fp_type<127>::random_base()));
 
   return 0;
 }
