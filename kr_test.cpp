@@ -1,10 +1,13 @@
 #include <chrono>
 #include <concepts>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <random>
+#include <sstream>
 
-#include "include/kr_fingerprinting.hpp"
+#include "include/kr-fingerprinting.hpp"
+#include "include/kr-fingerprinting128.hpp"
 
 using namespace kr_fingerprinting;
 
@@ -33,25 +36,34 @@ void mainp(std::vector<uint8_t> const &string, window_type const &w) {
   uint64_t const n = string.size();
   uint64_t const tau = w.window_size();
   auto const b = w.base();
-  std::cout << "b=" << b << std::endl;
-  std::cout << "b=" << (b >> 64) << "," << (uint64_t)b << std::endl;
+  // std::cout << "b=" << b << std::endl;
+  // std::cout << "b=" << (b >> 64) << "," << (uint64_t)b << std::endl;
+
+  auto col = [](double rate) {
+    std::stringstream stream;
+    stream << "1/2^" << std::setprecision(2) << std::fixed
+           << (std::floor(100 * std::log2(1.0 / rate)) / 100.0);
+    return stream.str();
+  };
 
   auto measure = [&]<typename T>(std::string s, T && t) {
     std::cout << s << " start!" << std::endl;
+    std::cout << s << " collision rate: " << col(w.collision_rate())
+              << std::endl;
     timer.start();
     auto result = t();
     auto time = timer.stop();
     std::cout << s << " time: " << time << "[ms]"
               << " = " << timer.mibs(time, n) << "mibs" << std::endl;
-    std::cout << s << " hash: " << result << std::endl;
+    // std::cout << s << " hash: " << result << std::endl;
     return result;
   };
 
-  using uintX_t = decltype(w.roll_right(0, (uint8_t)0));
+  using uintX_t = decltype(w.base());
 
   std::string name = std::string("FP") + std::to_string(w.bits());
   auto fp = measure(name, [&]() {
-    uintX_t fp = 0;
+    uintX_t fp = uintX_t();
     for (size_t i = 0; i < tau; i++) {
       fp = w.roll_right(fp, string[i]);
     }
@@ -61,18 +73,12 @@ void mainp(std::vector<uint8_t> const &string, window_type const &w) {
     return fp;
   });
 
-  uintX_t fptest = 0;
+  uintX_t fptest = uintX_t();
   for (size_t i = n - tau; i < n; i++) {
     fptest = w.roll_right(fptest, string[i]);
   }
   std::cout << name << " correct=" << (fptest == fp) << std::endl;
 }
-
-template <uint64_t s>
-using fp_type = kr_fingerprinting::kr_fingerprinter<TWO_POW_MINUS_ONE<s>>;
-
-template <uint64_t s>
-using sw_type = fp_type<s>::sliding_window;
 
 int main(int argc, char *argv[]) {
   if (argc < 2) return -1;
@@ -103,12 +109,13 @@ int main(int argc, char *argv[]) {
     std::cout << "String generated." << std::endl;
   }
 
-  mainp(string, sw_type<61>(tau, fp_type<61>::random_base()));
-  mainp(string, kr_fingerprinting::sliding_window122(
-                    tau, kr_fingerprinting::random_base_pair61()));
-  mainp(string, sw_type<89>(tau, fp_type<89>::random_base()));
-  mainp(string, sw_type<107>(tau, fp_type<107>::random_base()));
-  mainp(string, sw_type<127>(tau, fp_type<127>::random_base()));
-
+  mainp(string, kr_fingerprinting::sliding_window61(tau));
+  mainp(string, kr_fingerprinting::sliding_window89(tau));
+  mainp(string, kr_fingerprinting::sliding_window107(tau));
+  mainp(string, kr_fingerprinting::sliding_window122(tau));
+  mainp(string, kr_fingerprinting::sliding_window122b(tau));
+  mainp(string, kr_fingerprinting::sliding_window127(tau));
+  mainp(string, kr_fingerprinting::sliding_window183(tau));
+  mainp(string, kr_fingerprinting::sliding_window244(tau));
   return 0;
 }
