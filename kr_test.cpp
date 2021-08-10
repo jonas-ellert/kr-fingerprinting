@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
   mainp(string, kr_fingerprinting::sliding_window<122>(tau));
   mainp(string, kr_fingerprinting::sliding_window<183>(tau));
   mainp(string, kr_fingerprinting::sliding_window<244>(tau));
-
+  
   mainp(string, kr_fingerprinting::sliding_window<89>(tau));
   mainp(string, kr_fingerprinting::sliding_window<107>(tau));
   mainp(string, kr_fingerprinting::sliding_window<127>(tau));

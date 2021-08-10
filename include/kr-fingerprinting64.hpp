@@ -164,13 +164,14 @@ struct sliding_window_multi61 {
  public:
   using fingerprint_type = std::conditional_t<is_uint128_t, uint128_t, tuple>;
 
-  sliding_window_multi61(uint64_t const window_size, tuple base)
-      : window_size_(window_size), base_(base.mod()) {
+  sliding_window_multi61(uint64_t const window_size, fingerprint_type base)
+      : window_size_(window_size), base_((cast<tuple>(base)).mod()) {
     static_assert(x >= 2);
   };
 
   sliding_window_multi61(uint64_t const window_size)
-      : sliding_window_multi61(window_size, tuple().rnd()){};
+      : sliding_window_multi61(window_size,
+                               cast<fingerprint_type>(tuple().rnd())){};
 
   template <ByteType T>
   inline fingerprint_type roll_right(fingerprint_type fingerprint,
