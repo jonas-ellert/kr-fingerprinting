@@ -126,6 +126,8 @@ struct sliding_windowX {
   });
 
  public:
+  using fingerprint_type = uint128_t;
+
   sliding_windowX(uint64_t const window_size, uint128_t const base)
       : window_size_(window_size), base_(u128::mod<p>(base)){};
 

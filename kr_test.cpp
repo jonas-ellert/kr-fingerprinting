@@ -35,7 +35,8 @@ template <typename window_type>
 void mainp(std::vector<uint8_t> const &string, window_type const &w) {
   uint64_t const n = string.size();
   uint64_t const tau = w.window_size();
-  auto const b = w.base();
+
+  auto b = w.base();
   // std::cout << "b=" << b << std::endl;
   // std::cout << "b=" << (b >> 64) << "," << (uint64_t)b << std::endl;
 
@@ -110,12 +111,13 @@ int main(int argc, char *argv[]) {
   }
 
   mainp(string, kr_fingerprinting::sliding_window61(tau));
-  mainp(string, kr_fingerprinting::sliding_window89(tau));
-  mainp(string, kr_fingerprinting::sliding_window107(tau));
   mainp(string, kr_fingerprinting::sliding_window122(tau));
-  mainp(string, kr_fingerprinting::sliding_window122b(tau));
-  mainp(string, kr_fingerprinting::sliding_window127(tau));
   mainp(string, kr_fingerprinting::sliding_window183(tau));
   mainp(string, kr_fingerprinting::sliding_window244(tau));
+
+  mainp(string, kr_fingerprinting::sliding_window89(tau));
+  mainp(string, kr_fingerprinting::sliding_window107(tau));
+  mainp(string, kr_fingerprinting::sliding_window127(tau));
+
   return 0;
 }
