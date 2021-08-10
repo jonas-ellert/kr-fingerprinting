@@ -110,14 +110,14 @@ int main(int argc, char *argv[]) {
     std::cout << "String generated." << std::endl;
   }
 
-  mainp(string, kr_fingerprinting::sliding_window61(tau));
-  mainp(string, kr_fingerprinting::sliding_window122(tau));
-  mainp(string, kr_fingerprinting::sliding_window183(tau));
-  mainp(string, kr_fingerprinting::sliding_window244(tau));
+  mainp(string, kr_fingerprinting::sliding_window<61>(tau));
+  mainp(string, kr_fingerprinting::sliding_window<122>(tau));
+  mainp(string, kr_fingerprinting::sliding_window<183>(tau));
+  mainp(string, kr_fingerprinting::sliding_window<244>(tau));
 
-  mainp(string, kr_fingerprinting::sliding_window89(tau));
-  mainp(string, kr_fingerprinting::sliding_window107(tau));
-  mainp(string, kr_fingerprinting::sliding_window127(tau));
+  mainp(string, kr_fingerprinting::sliding_window<89>(tau));
+  mainp(string, kr_fingerprinting::sliding_window<107>(tau));
+  mainp(string, kr_fingerprinting::sliding_window<127>(tau));
 
   return 0;
 }
