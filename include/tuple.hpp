@@ -9,26 +9,9 @@ namespace kr_fingerprinting {
 namespace kr_tuple {
 
 template <uint64_t x>
-struct v128_type {
-  __extension__ using uint128_t = unsigned __int128;
-  uint128_t v[x >> 1];
-
-  struct empty {};
-  [[no_unique_address]] std::conditional_t<x & 1, uint64_t, empty> padding;
-
-  static_assert(sizeof(uint64_t) == 8);
-  static_assert(sizeof(uint128_t) == 16);
-} __attribute__((packed));
-
-template <uint64_t x>
 struct tuple {
-  static_assert(sizeof(v128_type<x>) == x * sizeof(uint64_t));
   constexpr static uint64_t size = x;
-
-  union {
-    uint64_t v[x];
-    v128_type<x> v128;
-  };
+  uint64_t v[x] = {};
 
   template <typename T>
   tuple &apply(T const &t) {
@@ -36,7 +19,7 @@ struct tuple {
     return *this;
   }
 
-  bool operator==(tuple const &o) const {
+  __attribute__((always_inline)) inline bool operator==(tuple const &o) const {
     __extension__ using uint128_t = unsigned __int128;
     static_assert(x > 0);
     static_assert(sizeof(tuple) == 8 * x);
@@ -64,7 +47,7 @@ struct tuple {
     }
   }
 
-  bool operator!=(tuple const &o) const {
+  __attribute__((always_inline)) inline bool operator!=(tuple const &o) const {
     __extension__ using uint128_t = unsigned __int128;
     static_assert(x > 0);
     static_assert(sizeof(tuple) == 8 * x);
@@ -92,7 +75,7 @@ struct tuple {
     }
   }
 
-  bool operator<(tuple const &o) const {
+  __attribute__((always_inline)) inline bool operator<(tuple const &o) const {
     __extension__ using uint128_t = unsigned __int128;
     static_assert(x > 0);
     static_assert(sizeof(tuple) == 8 * x);
@@ -126,7 +109,7 @@ struct tuple {
     }
   }
 
-  bool operator<=(tuple const &o) const {
+  __attribute__((always_inline)) inline bool operator<=(tuple const &o) const {
     __extension__ using uint128_t = unsigned __int128;
     static_assert(x > 0);
     static_assert(sizeof(tuple) == 8 * x);
