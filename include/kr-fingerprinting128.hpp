@@ -6,12 +6,12 @@ namespace kr_fingerprinting {
 
 namespace u128 {
 
-constexpr uint64_t countr_one(uint128_t v) {
+inline constexpr uint64_t countr_one(uint128_t v) {
   auto r = std::countr_one((uint64_t)v);
   return (r < 64) ? r : (std::countr_one((uint64_t)(v >> 64)) + 64);
 }
 
-constexpr uint64_t popcount(uint128_t v) {
+inline constexpr uint64_t popcount(uint128_t v) {
   return std::popcount((uint64_t)v) + std::popcount((uint64_t)(v >> 64));
 }
 
@@ -113,9 +113,17 @@ struct sliding_windowX {
 
   uint64_t const window_size_;
   uint128_t const base_;
+
+  uint128_t const table_[256][256] = {};
+
   double const collision_rate_ = ((double)window_size_ - 1) / p;
 
-  table2d<uint128_t> const table_ = table2d<uint128_t>([&](uint128_t d[][256]) {
+ public:
+  using fingerprint_type = uint128_t;
+
+  sliding_windowX(uint64_t const window_size, uint128_t const base)
+      : window_size_(window_size), base_(u128::mod<p>(base)) {
+    auto d = const_auto_cast(table_);
     uint128_t const max_exponent = u128::power<p>(base_, window_size_);
     for (uint64_t i = 0; i < 256; ++i) {
       d[i][0] = u128::mod<p>(p - u128::mult<p>(i, max_exponent));
@@ -123,13 +131,7 @@ struct sliding_windowX {
         d[i][j] = u128::mod<p>(d[i][j - 1] + 1);
       }
     }
-  });
-
- public:
-  using fingerprint_type = uint128_t;
-
-  sliding_windowX(uint64_t const window_size, uint128_t const base)
-      : window_size_(window_size), base_(u128::mod<p>(base)){};
+  };
 
   sliding_windowX(uint64_t const window_size)
       : sliding_windowX(window_size, u128::random(1, p - 1)){};
@@ -137,7 +139,7 @@ struct sliding_windowX {
   template <ByteType T>
   inline uint128_t roll_right(uint128_t const fp, T const pop_left,
                               T const push_right) const {
-    auto lookup = table_(pop_left, push_right);
+    auto lookup = table_[pop_left][push_right];
     if (base_ >= p || fp >= p || lookup >= p)
       __builtin_unreachable();
     else

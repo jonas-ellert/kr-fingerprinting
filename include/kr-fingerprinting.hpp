@@ -3,6 +3,8 @@
 #include "kr-fingerprinting128.hpp"
 
 namespace kr_fingerprinting {
+    
+
 
 using sliding_window61 = u64::sliding_window61;
 using sliding_window122 = u64::sliding_window_multi61<2>;
@@ -12,6 +14,24 @@ using sliding_window244 = u64::sliding_window_multi61<4>;
 using sliding_window89 = u128::sliding_windowX<89>;
 using sliding_window107 = u128::sliding_windowX<107>;
 using sliding_window127 = u128::sliding_windowX<127>;
+
+#define fp_roll_function(WINDOW) \
+auto roll(WINDOW const &w, WINDOW::fingerprint_type fp, uint8_t a, uint8_t b) { \
+  return w.roll_right(fp, a, b); \
+}
+
+#define fp_roll_function(WINDOW) \
+auto roll(WINDOW const &w, WINDOW::fingerprint_type fp, uint8_t a, uint8_t b) { \
+  return w.roll_right(fp, a, b); \
+}
+
+fp_roll_function(sliding_window61)
+fp_roll_function(sliding_window122)
+fp_roll_function(sliding_window183)
+fp_roll_function(sliding_window244)
+fp_roll_function(sliding_window89)
+fp_roll_function(sliding_window107)
+fp_roll_function(sliding_window127)
 
 template <uint64_t shift>
 constexpr static auto shift_to_pointer_type() {
